@@ -1,5 +1,7 @@
 import os
 import tempfile
+import sys
+from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -9,6 +11,7 @@ from sqlalchemy.pool import StaticPool
 os.environ.setdefault("ENVIRONMENT", "test")
 os.environ.setdefault("SECRET_KEY", "test-secret-key-that-is-at-least-thirty-two-characters-long")
 os.environ.setdefault("STORAGE_BACKEND", "local")
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.main import app
 from app.core.database import Base, get_db
