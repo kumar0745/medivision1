@@ -1,1 +1,1 @@
-from .user import User, DiagnosisRecord, WellnessEntry, CycleEntry, EmergencyContact
+from .user import User, DiagnosisRecord, Attachment, WellnessEntry, CycleEntry, EmergencyContact

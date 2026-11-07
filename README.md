@@ -1,5 +1,5 @@
 # MediVision AI
-**An Integrated AI-Based Healthcare Monitoring and Diagnosis Platform**
+**An AI-Assisted Personal Wellness and Health-Education Platform**
 
 MediVision AI is a responsive academic prototype for personal wellness organisation and health education. It combines onboarding, health-note capture, self-reported wellness tracking, age-group guidance, opt-in women's health tracking, emergency preparedness, a source-linked health assistant, and personal summaries.
 
@@ -64,6 +64,26 @@ docs/
   viva-notes.md
 ```
 
+## Quality checks
+
+Run the backend checks from `backend/`:
+
+```powershell
+python -m pip install -r requirements.txt
+pytest
+```
+
+Build the frontend from `frontend/`:
+
+```powershell
+npm install
+npm run build
+```
+
+GitHub Actions runs both checks for the production-hardening branch and pull requests.
+
+See [production readiness notes](docs/production-readiness.md) for deployment configuration and remaining launch work.
+
 ## Run locally (Windows PowerShell)
 
 ### Backend
@@ -103,11 +123,23 @@ The GitHub repository is connected to two Vercel projects:
 
 The frontend has `VITE_API_URL` set to the backend domain. The backend uses `FRONTEND_ORIGINS` to allow the frontend origin.
 
-### Important storage limitation
+### Production infrastructure
 
-The current Vercel backend is configured with a temporary SQLite database at `/tmp/medivision.db` and temporary upload storage at `/tmp/medivision-uploads`. **Vercel function instances can be replaced, so this storage is not durable.** Account registrations, records and uploads may be lost. Connect a managed PostgreSQL database and durable object storage before expecting persistent accounts or real-world use.
+The production-hardening branch is configured for:
 
-Never put database credentials, OpenAI keys, JWT secrets, passwords, patient records or uploaded files in GitHub. Add production secrets only through Vercel's Environment Variables interface. The frontend must never contain a private API key.
+- Managed PostgreSQL on Neon (Singapore region) for persistent account and wellness records.
+- A private Neon Object Storage bucket for attachments. Files use opaque, per-user object keys; download access is checked against the signed-in owner and uses a short-lived URL.
+- A rotated JWT signing key stored as an encrypted Vercel environment variable.
+- HttpOnly, Secure, SameSite=Lax browser session cookies; the frontend no longer keeps access tokens in localStorage. A same-origin Vercel `/api` rewrite keeps the cookie first-party.
+- Explicit CORS allow-list and origin checks on cookie-authenticated write requests.
+- File extension, size and signature checks before storage; attachments are not analyzed for diagnosis.
+- A database health check that executes a real `SELECT 1` query.
+- Account deletion for the user's records and stored attachments.
+- Backend API tests and GitHub Actions checks for tests and frontend builds.
+
+Never put database credentials, OpenAI keys, JWT secrets, passwords, patient records or uploaded files in GitHub. Store production secrets only in encrypted deployment environment variables. The frontend must never contain a private API key.
+
+The backend's previous temporary SQLite data was not migrated. Users need to create a new account on the persistent database.
 
 ## Environment variables
 
