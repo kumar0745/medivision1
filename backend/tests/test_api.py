@@ -72,3 +72,10 @@ def test_delete_account_removes_account_and_data(client):
     response = client.delete("/api/auth/me", headers=headers)
     assert response.status_code == 204
     assert client.get("/api/auth/me", headers=headers).status_code == 401
+
+def test_untrusted_origin_is_blocked_for_registration(client):
+    response = client.post("/api/auth/register", headers={"Origin": "https://preview.example"}, json={
+        "full_name": "Preview User", "email": "preview@example.com",
+        "password": "StrongPass!234", "privacy_consent": True,
+    })
+    assert response.status_code == 403

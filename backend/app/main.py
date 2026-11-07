@@ -26,9 +26,9 @@ app.add_middleware(
 
 @app.middleware("http")
 async def security_headers_and_csrf(request, call_next):
-    if request.method in {"POST", "PUT", "PATCH", "DELETE"} and request.cookies.get("mv_session"):
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
         origin = request.headers.get("origin")
-        if origin not in settings.origins:
+        if origin and origin not in settings.origins:
             return JSONResponse(status_code=403, content={"detail": "Request origin is not trusted."})
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
