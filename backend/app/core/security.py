@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta, timezone
+import hashlib
+import hmac
 from jose import jwt, JWTError
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, Request, status
@@ -17,16 +19,19 @@ def hash_password(password: str) -> str:
 def verify_password(password: str, hashed: str) -> bool:
     return pwd_context.verify(password, hashed)
 
-def create_access_token(subject: str):
+def _password_fingerprint(password_hash: str) -> str:
+    return hashlib.sha256(password_hash.encode("utf-8")).hexdigest()
+
+def create_access_token(subject: str, password_hash: str):
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
-    return jwt.encode({"sub": subject, "exp": expire}, settings.secret_key, algorithm="HS256")
+    payload = {"sub": subject, "exp": expire, "pwd": _password_fingerprint(password_hash)}
+    return jwt.encode(payload, settings.secret_key, algorithm="HS256")
 
 def get_current_user(
     request: Request,
     token: str | None = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ):
-    # Browser sessions use an HttpOnly cookie; Bearer tokens remain available for API clients.
     token = token or request.cookies.get("mv_session")
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -38,12 +43,15 @@ def get_current_user(
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=["HS256"])
         subject = payload.get("sub")
-        if not subject:
+        fingerprint = payload.get("pwd")
+        if not subject or not fingerprint:
             raise credentials_exception
         user_id = int(subject)
     except (JWTError, ValueError, TypeError):
         raise credentials_exception
     user = db.query(User).filter(User.id == user_id).first()
     if not user or not user.is_active:
+        raise credentials_exception
+    if not hmac.compare_digest(str(fingerprint), _password_fingerprint(user.password_hash)):
         raise credentials_exception
     return user

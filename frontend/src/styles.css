@@ -347,3 +347,6 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
  .panel-head .btn{align-self:flex-start}
  .top-user .mode-pill{max-width:126px;overflow:hidden}
 }
+
+.notice.success { background: #e9f6ef; border: 1px solid #c8e8d6; color: #276648; }
+.forgot-link { align-self: flex-end; margin: 2px 0 8px; }

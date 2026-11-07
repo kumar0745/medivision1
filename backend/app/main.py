@@ -11,7 +11,7 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title=settings.app_name,
-    version="1.1.0",
+    version="1.2.0",
     description="MediVision AI wellness and health-education prototype. Not for clinical diagnosis.",
     docs_url="/docs" if settings.environment.lower() != "production" else None,
     redoc_url="/redoc" if settings.environment.lower() != "production" else None,
@@ -58,5 +58,7 @@ def health():
             connection.execute(text("SELECT 1"))
     except Exception:
         raise HTTPException(status_code=503, detail="Database is unavailable.")
-    return {"status": "ok", "application": settings.app_name, "version": "1.1.0",
-            "database": "connected", "storage": settings.storage_backend}
+    return {"status": "ok", "application": settings.app_name, "version": "1.2.0",
+            "database": "connected", "storage": settings.storage_backend,
+            "security": {"malware_scanning": "configured" if settings.scanner_configured else "disabled_fail_closed",
+                         "password_reset_email": "configured" if settings.email_configured else "not_configured"}}

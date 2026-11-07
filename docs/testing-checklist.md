@@ -1,68 +1,51 @@
-# MediVision AI — testing checklist
+# MediVision AI test checklist
 
-## Interactive demo mode
-- [ ] Sign-in screen opens and the demo entry action is visible.
-- [ ] Demo opens without account registration.
-- [ ] Demo data ribbon clearly identifies fictional sample data.
-- [ ] Overview shows sample counts and recent records.
-- [ ] Health note examples populate the input and save an additional demo record.
-- [ ] Wellness mood, sleep and note inputs save and update the illustrative index.
-- [ ] Age guidance checklist can be marked complete and incomplete.
-- [ ] Women's health cycle note can be saved and appears in the history.
-- [ ] Women's health awareness tab opens.
-- [ ] Emergency contact can be added and deleted.
-- [ ] Emergency text safety card downloads and states that contact details are not automatically shared.
-- [ ] Assistant prompt buttons return an educational demo answer with references when relevant.
-- [ ] My records shows sample entries and downloads a demo-labelled summary.
-- [ ] Profile edits update the demo profile display.
-- [ ] Reload preserves demo records in the same browser.
-- [ ] Reset demo data restores the original sample set.
-- [ ] Exit demo returns to sign-in.
+## Automated CI
 
-## API-backed account mode
-- [ ] Backend starts and /api/health returns status=ok.
-- [ ] Swagger loads at /docs.
-- [ ] User can register, log in and refresh the page.
-- [ ] A second user cannot read the first user's records.
-- [ ] Profile changes persist on the configured database.
-- [ ] Health check saves a symptom note.
-- [ ] Unsupported upload extension is rejected.
-- [ ] Upload above configured size limit is rejected.
-- [ ] Wellness check-in saves mood/sleep and returns a non-clinical illustrative index.
-- [ ] Age-group guidance returns the expected content.
-- [ ] Women's health routes require explicit opt-in.
-- [ ] Cycle entry persists after opt-in.
-- [ ] Emergency contact can be added and deleted.
-- [ ] Assistant works in retrieval-only mode without an API key.
-- [ ] Assistant sources are clickable.
-- [ ] Summary export downloads account data.
+- [ ] Backend tests: `cd backend && python -m pytest`
+- [ ] Frontend production build: `cd frontend && npm run build`
+- [ ] Playwright browser journeys: `cd frontend && npx playwright install chromium && npm run test:e2e`
+- [ ] Backup crypto unit tests: `cd scripts && python -m pytest -q test_backup_crypto.py`
 
-## Implemented in production-hardening branch
-- [x] Managed PostgreSQL and private object storage are configured in Vercel.
-- [x] JWT key is rotated and stored encrypted.
-- [x] Browser sessions use HttpOnly, Secure cookies; bearer tokens are not stored in localStorage.
-- [x] Cookie-authenticated write requests check the allowed Origin.
-- [x] Upload file type, signature and size are validated.
-- [x] Attachment download checks account ownership and uses private storage.
-- [x] Account deletion removes associated records and private attachments.
-- [x] Health endpoint verifies a live database connection.
-- [x] API tests and GitHub Actions quality checks added.
+CI runs the backend tests, frontend build, browser journeys and backup crypto tests for PRs to main.
 
-## Still required before handling real health information
-- [ ] Run and review the CI test results and full production user-journey tests.
-- [ ] Independent security assessment, threat model, penetration test and dependency audit.
-- [ ] Malware scanning/quarantine for uploaded files.
-- [ ] Distributed rate limiting and abuse protection.
-- [ ] Email verification, password reset, MFA and session revocation.
-- [ ] Versioned database migrations, backups and tested restore procedures.
-- [ ] Audit trails, retention and independently verified data deletion.
-- [ ] Privacy notice, consent language and jurisdiction-specific legal review.
-- [ ] Clinical governance and validation before any clinical decision support.
-- [ ] Verified emergency integrations and explicit user permissions.
+## Backend API journeys (synthetic data)
 
-## Explicitly not implemented
-- No trained/validated medical image classifier.
-- No definitive diagnosis or prescription.
-- No validated clinical or mental-health risk score.
-- No emergency dispatch or real-time location sharing.
-- No claim of clinical validation.
+- [ ] Register with affirmative privacy consent; reject registration without consent.
+- [ ] Sign in and confirm HttpOnly session cookie.
+- [ ] Confirm account data is isolated between users.
+- [ ] Confirm opt-in women's health endpoints reject users who have not opted in.
+- [ ] Request password reset for a registered account and verify a generic response.
+- [ ] Request password reset for an unknown account and verify the same generic response.
+- [ ] Verify the reset token expires, is single-use, and previous sessions are invalidated after password change.
+- [ ] Verify an email-delivery failure invalidates the token and does not disclose account existence.
+- [ ] Reject uploads with unsupported types, invalid signatures, oversize files, missing scanner config, scanner outage and malware verdict.
+- [ ] With ClamAV configured, allow only attachments receiving an explicit clean result.
+- [ ] Verify attachment downloads require the owning user.
+- [ ] Delete a test account and verify records, reset tokens, and attachments are removed.
+
+## Browser journeys (Playwright)
+
+- [ ] Explore the sample demo and move between Wellness and Profile.
+- [ ] Register a synthetic user with explicit consent and reach the overview.
+- [ ] Sign in with a mocked session response and reach the overview.
+- [ ] Request a reset link and see the generic confirmation.
+- [ ] Open a synthetic reset token in the URL fragment and submit a new password.
+
+## Backup and restore
+
+- [ ] Add the GitHub backup repository secrets/variables documented in `security-recovery-backups.md`.
+- [ ] Run the encrypted backup workflow manually.
+- [ ] Run the isolated restore-test workflow and confirm table counts and attachment hashes.
+- [ ] Enable the daily workflow schedule only after the first successful backup and restore-test.
+- [ ] Document a human-approved recovery plan before restoring any live branch.
+
+## Remaining production gates
+
+- [ ] Deploy and verify the private ClamAV service; until then, attachment uploads remain disabled.
+- [ ] Configure and verify Resend sender credentials; until then, password-reset email is not sent.
+- [ ] Add distributed/IP-based rate limiting for authentication.
+- [ ] Complete independent security and privacy reviews, backup/restore exercise, retention review and legal assessment.
+- [ ] Obtain clinical governance and independent validation before considering clinical decision support.
+
+Do not use real patient data during testing.

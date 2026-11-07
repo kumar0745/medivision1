@@ -1,0 +1,109 @@
+name: MediVision encrypted backup and restore
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: "Choose backup or a non-production restore verification"
+        required: true
+        type: choice
+        options:
+          - backup
+          - restore-test
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    if: inputs.operation == 'backup'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - name: Install PostgreSQL 17 client and GPG
+        run: |
+          set -euo pipefail
+          sudo install -d /usr/share/postgresql-common/pgdg
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo tee /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc >/dev/null
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17 gnupg
+      - name: Install backup dependencies
+        run: pip install boto3 cryptography "psycopg[binary]"
+      - name: Validate backup secrets are configured
+        env:
+          MEDIVISION_DATABASE_URL: ${{ secrets.MEDIVISION_DATABASE_URL }}
+          BACKUP_ENCRYPTION_PASSPHRASE: ${{ secrets.BACKUP_ENCRYPTION_PASSPHRASE }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.MEDIVISION_BACKUP_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.MEDIVISION_BACKUP_AWS_SECRET_ACCESS_KEY }}
+          AWS_ENDPOINT_URL_S3: ${{ vars.MEDIVISION_BACKUP_S3_ENDPOINT }}
+          AWS_REGION: ${{ vars.MEDIVISION_BACKUP_S3_REGION }}
+        run: |
+          set -euo pipefail
+          for key in MEDIVISION_DATABASE_URL BACKUP_ENCRYPTION_PASSPHRASE AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_ENDPOINT_URL_S3 AWS_REGION; do
+            if [ -z "${!key}" ]; then echo "::error::Missing GitHub secret or variable for ${key}"; exit 1; fi
+          done
+      - name: Create encrypted database and attachment backup
+        env:
+          MEDIVISION_DATABASE_URL: ${{ secrets.MEDIVISION_DATABASE_URL }}
+          BACKUP_ENCRYPTION_PASSPHRASE: ${{ secrets.BACKUP_ENCRYPTION_PASSPHRASE }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.MEDIVISION_BACKUP_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.MEDIVISION_BACKUP_AWS_SECRET_ACCESS_KEY }}
+          AWS_ENDPOINT_URL_S3: ${{ vars.MEDIVISION_BACKUP_S3_ENDPOINT }}
+          AWS_REGION: ${{ vars.MEDIVISION_BACKUP_S3_REGION }}
+          BACKUP_BUCKET: medivision-backups
+          SOURCE_BUCKET: health-attachments
+          BACKUP_RETENTION_DAYS: "30"
+        run: python scripts/backup_restore.py backup
+
+  restore-test:
+    if: inputs.operation == 'restore-test'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: restore_test
+          POSTGRES_PASSWORD: restore_test_only
+          POSTGRES_DB: medivision_restore_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U restore_test -d medivision_restore_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - name: Install PostgreSQL 17 client and GPG
+        run: |
+          set -euo pipefail
+          sudo install -d /usr/share/postgresql-common/pgdg
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo tee /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc >/dev/null
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17 gnupg
+      - name: Install restore-test dependencies
+        run: pip install boto3 cryptography "psycopg[binary]"
+      - name: Restore latest backup to isolated CI database and verify
+        env:
+          RESTORE_TEST_DATABASE_URL: postgresql://restore_test:restore_test_only@localhost:5432/medivision_restore_test
+          BACKUP_ENCRYPTION_PASSPHRASE: ${{ secrets.BACKUP_ENCRYPTION_PASSPHRASE }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.MEDIVISION_BACKUP_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.MEDIVISION_BACKUP_AWS_SECRET_ACCESS_KEY }}
+          AWS_ENDPOINT_URL_S3: ${{ vars.MEDIVISION_BACKUP_S3_ENDPOINT }}
+          AWS_REGION: ${{ vars.MEDIVISION_BACKUP_S3_REGION }}
+          BACKUP_BUCKET: medivision-backups
+        run: python scripts/backup_restore.py restore-test

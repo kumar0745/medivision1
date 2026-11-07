@@ -17,6 +17,7 @@ from app.main import app
 from app.core.database import Base, get_db
 from app.core import file_storage
 from app.core.config import settings
+from app.models.user import User
 
 @pytest.fixture()
 def client(monkeypatch):
@@ -36,6 +37,8 @@ def client(monkeypatch):
             db.close()
 
     monkeypatch.setattr(settings, "frontend_origins", "http://testserver")
+    monkeypatch.setattr(settings, "malware_scanner_url", "")
+    monkeypatch.setattr(settings, "malware_scanner_token", "")
     app.dependency_overrides[get_db] = override_get_db
     with tempfile.TemporaryDirectory() as directory:
         monkeypatch.setattr(file_storage.settings, "upload_dir", directory)
