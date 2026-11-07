@@ -199,7 +199,17 @@ function Assistant({demoMode,notify}){
 
 function Records({data,demoMode,demoData,notify}){
  const records=demoMode?demoData.healthChecks:(data?.recent_records||[]),wellness=demoMode?demoData.wellnessEntries:[];
- function download(){const lines=['MEDIVISION AI — PERSONAL WELLNESS SUMMARY','','Generated: '+new Date().toLocaleString(),'','HEALTH NOTES',...records.map(r=>(r.created_at||'')+' | '+r.severity+' | '+r.symptoms),'','WELLNESS CHECK-INS',...wellness.map(w=>w.created_at+' | '+w.mood+' | sleep '+w.sleep_hours+'h | illustrative index '+w.stress_score+'/100'),'','This is a user-entered wellness summary, not a formal medical record or diagnosis.'];const blob=new Blob([lines.join('\n')],{type:'text/plain'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='medivision-wellness-summary.txt';a.click();URL.revokeObjectURL(url);notify('Summary downloaded');}
+ async function download(){
+  try{
+   let text;
+   if(!demoMode){text=await api('/api/reports/summary.txt');}
+   else{
+    const lines=['MEDIVISION AI — PERSONAL WELLNESS SUMMARY','','DEMO DATA — FICTIONAL SAMPLE INFORMATION','Generated: '+new Date().toLocaleString(),'','HEALTH NOTES',...records.map(r=>(r.created_at||'')+' | '+r.severity+' | '+r.symptoms),'','WELLNESS CHECK-INS',...wellness.map(w=>w.created_at+' | '+w.mood+' | sleep '+w.sleep_hours+'h | illustrative index '+w.stress_score+'/100'),'','This is a user-entered wellness summary, not a formal medical record or diagnosis.'];
+    text=lines.join('\\n');
+   }
+   const blob=new Blob([text],{type:'text/plain'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='medivision-wellness-summary.txt';a.click();URL.revokeObjectURL(url);notify('Summary downloaded');
+  }catch(e){notify(e.message);}
+ }
  return <div className="stack"><Panel title="Your wellness history" subtitle="A personal summary of information stored in your wellness space" action={<Btn kind="soft" onClick={download}><Download size={15}/> Download summary</Btn>}><Notice>This is a personal wellness summary of information entered into the application. It is not a formal medical record.</Notice><h3>Recent health notes</h3>{records.length?records.map(r=><div className="record-line" key={r.id}><div className="record-symbol"><ClipboardList size={17}/></div><div className="record-main"><b>{r.symptoms}</b><small>{dateLabel(r.created_at)} · {r.category||'Health note'}</small></div><span className="soft-tag">{r.severity}</span></div>):<Empty>Your health notes will appear here after you save one.</Empty>}{demoMode&&<><div className="section-divider"/><h3>Wellness check-ins</h3>{wellness.length?wellness.map(w=><div className="record-line" key={w.id}><div className="record-symbol"><Brain size={17}/></div><div className="record-main"><b>{w.mood} · {w.sleep_hours}h sleep</b><small>{dateLabel(w.created_at)}{w.note?' · '+w.note:''}</small></div><span className="score-pill">{w.stress_score}/100</span></div>):<Empty>No wellness check-ins yet.</Empty>}</>}</Panel></div>;
 }
 
