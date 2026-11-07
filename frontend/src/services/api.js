@@ -5,9 +5,10 @@ export function getToken() {
   return null;
 }
 
-export function setSession(data) {
+export function setSession() {
+  // Authentication tokens and personal profile details stay out of browser storage.
   localStorage.removeItem('mv_token');
-  localStorage.setItem('mv_user', JSON.stringify(data.user));
+  localStorage.removeItem('mv_user');
 }
 
 export function clearSession() {
