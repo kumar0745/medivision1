@@ -16,6 +16,7 @@ test('visitor can explore the demo and navigate wellness sections', async ({ pag
 });
 
 test('sign-in establishes a session and opens the dashboard', async ({ page }) => {
+  await page.route('**/api/health', route => route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({security: {password_reset_email: 'configured', malware_scanning: 'configured'}})}));
   const user = {
     id: 77, full_name: 'Pavan Test', email: 'pavan@example.test',
     age: 24, age_group: '16-30', health_goal: 'fitness',
@@ -47,6 +48,7 @@ test('sign-in establishes a session and opens the dashboard', async ({ page }) =
 });
 
 test('forgot password gives the same non-enumerating confirmation', async ({ page }) => {
+  await page.route('**/api/health', route => route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({security: {password_reset_email: 'configured', malware_scanning: 'configured'}})}));
   await page.route('**/api/auth/me', route => route.fulfill({
     status: 401, contentType: 'application/json',
     body: JSON.stringify({ detail: 'Please sign in again.' }),
@@ -86,6 +88,7 @@ test('reset link changes the password and returns to sign-in', async ({ page }) 
 });
 
 test('new visitor can register with explicit privacy consent', async ({ page }) => {
+  await page.route('**/api/health', route => route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({security: {password_reset_email: 'configured', malware_scanning: 'configured'}})}));
   const user = {
     id: 88, full_name: 'Asha Test', email: 'asha@example.test',
     age: 22, age_group: '16-30', health_goal: 'prevent',
@@ -115,4 +118,21 @@ test('new visitor can register with explicit privacy consent', async ({ page }) 
   await page.getByText('I consent to saving my account and wellness entries').click();
   await page.getByRole('button', { name: 'Create account', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Good morning, Asha.' })).toBeVisible();
+});
+
+
+test('signed-in users see that attachments are disabled until scanning is active', async ({ page }) => {
+  const user = {id: 99, full_name: 'Asha Test', email: 'asha@example.test', age: 22, age_group: '16-30', health_goal: 'prevent', women_health_opt_in: false};
+  await page.route('**/api/health', route => route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({security: {password_reset_email: 'not_configured', malware_scanning: 'disabled_fail_closed'}})}));
+  await page.route('**/api/auth/me', route => route.fulfill({status: 401, contentType: 'application/json', body: JSON.stringify({detail: 'Please sign in again.'})}));
+  await page.route('**/api/auth/login', route => route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({token_type: 'cookie', user})}));
+  await page.route('**/api/dashboard', route => route.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({user: {full_name: user.full_name, age_group: user.age_group, health_goal: user.health_goal}, wellness_count: 0, diagnosis_count: 0, latest_wellness: null, recent_records: [], cycle_tracking_enabled: false, cycle_count: 0})}));
+  await page.route('**/api/diagnosis', route => route.fulfill({status: 200, contentType: 'application/json', body: '[]'}));
+  await page.goto('/');
+  await page.getByLabel('Email address').fill(user.email);
+  await page.getByLabel('Password').fill('StrongTestPassword!234');
+  await page.getByRole('button', {name: 'Sign in', exact: true}).click();
+  await page.getByRole('button', {name: 'Health check', exact: true}).click();
+  await expect(page.getByText('Secure file scanning is not active yet')).toBeVisible();
+  await expect(page.locator('input[type=file]')).toBeDisabled();
 });
