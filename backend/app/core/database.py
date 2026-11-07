@@ -2,8 +2,20 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from .config import settings
 
-connect_args = {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
-engine = create_engine(settings.database_url, connect_argr=connect_args, pool_pre_ping=True)
+database_url = settings.database_url.strip()
+if database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql+psycopg://", 1)
+elif database_url.startswith("postgresql://"):
+    database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+
+engine_options = {"pool_pre_ping": True}
+if database_url.startswith("sqlite"):
+    engine_options["connect_args"] = {"check_same_thread": False}
+else:
+    # Keep a small pool for serverless instances and recycle stale connections.
+    engine_options.update({"pool_size": 1, "max_overflow": 0, "pool_recycle": 300})
+
+engine = create_engine(database_url, **engine_options)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 class Base(DeclarativeBase):
