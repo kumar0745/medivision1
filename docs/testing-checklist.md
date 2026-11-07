@@ -37,15 +37,26 @@
 - [ ] Assistant sources are clickable.
 - [ ] Summary export downloads account data.
 
-## Before real-world deployment
-- [ ] Replace temporary Vercel /tmp SQLite with managed PostgreSQL.
-- [ ] Replace temporary uploads with private durable object storage and malware scanning.
-- [ ] Threat model, penetration test and dependency audit.
-- [ ] HTTPS, strict CORS, rate limiting and abuse protection.
-- [ ] Production JWT secret rotation.
-- [ ] Encryption at rest and in transit; secure key management.
-- [ ] Audit trails, retention, deletion and backup restore tests.
-- [ ] Privacy/legal review for applicable health-data requirements.
+## Implemented in production-hardening branch
+- [x] Managed PostgreSQL and private object storage are configured in Vercel.
+- [x] JWT key is rotated and stored encrypted.
+- [x] Browser sessions use HttpOnly, Secure cookies; bearer tokens are not stored in localStorage.
+- [x] Cookie-authenticated write requests check the allowed Origin.
+- [x] Upload file type, signature and size are validated.
+- [x] Attachment download checks account ownership and uses private storage.
+- [x] Account deletion removes associated records and private attachments.
+- [x] Health endpoint verifies a live database connection.
+- [x] API tests and GitHub Actions quality checks added.
+
+## Still required before handling real health information
+- [ ] Run and review the CI test results and full production user-journey tests.
+- [ ] Independent security assessment, threat model, penetration test and dependency audit.
+- [ ] Malware scanning/quarantine for uploaded files.
+- [ ] Distributed rate limiting and abuse protection.
+- [ ] Email verification, password reset, MFA and session revocation.
+- [ ] Versioned database migrations, backups and tested restore procedures.
+- [ ] Audit trails, retention and independently verified data deletion.
+- [ ] Privacy notice, consent language and jurisdiction-specific legal review.
 - [ ] Clinical governance and validation before any clinical decision support.
 - [ ] Verified emergency integrations and explicit user permissions.
 

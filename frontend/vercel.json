@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://medivision1.vercel.app/api/:path*"
+    }
+  ]
+}

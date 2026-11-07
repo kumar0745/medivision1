@@ -1,5 +1,5 @@
 from sqlalchemy import String, Boolean, DateTime, Integer, ForeignKey, Text, Float
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime, timezone
 from ..core.database import Base
 
@@ -26,7 +26,19 @@ class DiagnosisRecord(Base):
     category: Mapped[str] = mapped_column(String(50), default="symptom-check")
     attachment_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     guidance: Mapped[str] = mapped_column(Text)
-    severity: Mapped[str] = mapped_column(String(20), default="Information")
+    severity: Mapped[str] = mapped_column(String(40), default="Information")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+class Attachment(Base):
+    __tablename__ = "attachments"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    diagnosis_record_id: Mapped[int] = mapped_column(ForeignKey("diagnosis_records.id"), unique=True, index=True)
+    object_key: Mapped[str] = mapped_column(String(500), unique=True)
+    original_filename: Mapped[str] = mapped_column(String(255))
+    content_type: Mapped[str] = mapped_column(String(100))
+    size_bytes: Mapped[int] = mapped_column(Integer)
+    sha256: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 class WellnessEntry(Base):
