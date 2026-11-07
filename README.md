@@ -121,7 +121,7 @@ The GitHub repository is connected to two Vercel projects:
 - **Frontend:** project root directory `frontend`, Vite build, output `dist`.
 - **Backend:** project root directory `backend`, FastAPI entry point `index.py`.
 
-The frontend has `VITE_API_URL` set to the backend domain. The backend uses `FRONTEND_ORIGINS` to allow the frontend origin.
+The frontend uses a same-origin `/api/*` rewrite to the backend, preserving first-party HttpOnly cookies. The backend uses `FRONTEND_ORIGINS` to allow trusted browser origins.
 
 ### Production infrastructure
 
@@ -135,7 +135,7 @@ The production-hardening branch is configured for:
 - File extension, size and signature checks before storage; attachments are not analyzed for diagnosis.
 - A database health check that executes a real `SELECT 1` query.
 - Account deletion for the user's records and stored attachments.
-- Backend API tests and GitHub Actions checks for tests and frontend builds.
+- Backend API tests, Playwright browser journeys, encrypted backup/restore tooling and GitHub Actions quality checks.
 
 Never put database credentials, OpenAI keys, JWT secrets, passwords, patient records or uploaded files in GitHub. Store production secrets only in encrypted deployment environment variables. The frontend must never contain a private API key.
 
@@ -148,7 +148,9 @@ Backend variables are documented in `backend/.env.example`. Important values:
 - `SECRET_KEY`: a strong, unique secret for signing tokens.
 - `DATABASE_URL`: local SQLite or a managed PostgreSQL connection string.
 - `FRONTEND_ORIGINS`: comma-separated allowed frontend origins.
-- `UPLOAD_DIR`: local or temporary upload directory.
+- `UPLOAD_DIR`: local development storage path. Production files use private object storage.
+- `MALWARE_SCANNER_URL` / `MALWARE_SCANNER_TOKEN`: required to enable file attachments after a clean ClamAV verdict.
+- `APP_BASE_URL`, `RESEND_API_KEY`, `EMAIL_FROM`: required to send account-recovery email.
 - `OPENAI_API_KEY`: optional server-side assistant key; do not expose this to Vite.
 
 Frontend:
@@ -164,9 +166,9 @@ Frontend:
 - Emergency routes do not dispatch ambulances or share live location.
 - Demo assistant responses are scripted educational examples. Account assistant responses use a curated local retrieval library and optional LLM configuration.
 - Demo sample data is fictional and browser-local.
-- The current Vercel database and file storage are temporary. Do not use real patient or sensitive health data.
+- Production data uses managed Neon PostgreSQL and private Neon Object Storage. Upload scanning and email recovery remain disabled until their external services are configured. Do not use real patient or sensitive health data until the remaining security, privacy and clinical reviews are complete.
 - Authentication, authorisation, privacy, security, retention, monitoring and clinical governance need independent review before any real-world deployment.
 
-See `docs/` for the architecture, demo guide, testing checklist, release checklist and viva notes.
+See `docs/` for the architecture, demo guide, testing checklist, release checklist, [security/recovery/backup setup](docs/security-recovery-backups.md), and viva notes.
 
 No license has been assigned; all rights reserved by default.

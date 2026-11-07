@@ -49,17 +49,50 @@ function Stat({icon:Icon,label,value,sub}){return <div className="stat-card"><di
 function SparkLine({values=[]}){const vals=values.length?values:[0,0,0],max=Math.max(10,...vals),min=Math.min(0,...vals);const coords=vals.map((v,i)=>(vals.length===1?50:i*100/(vals.length-1))+','+(38-((v-min)/(max-min||1))*30)).join(' ');return <svg className="sparkline" viewBox="0 0 100 42" preserveAspectRatio="none" aria-label="Illustrative trend"><polyline points={coords} fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/>{vals.map((v,i)=><circle key={i} cx={vals.length===1?50:i*100/(vals.length-1)} cy={38-((v-min)/(max-min||1))*30} r="2.3" fill="currentColor"/>)}</svg>;}
 
 function Auth({onAuth,onDemo}){
- const [mode,setMode]=useState('login'),[form,setForm]=useState({full_name:'',email:'',password:'',age:'',age_group:'30-45',gender:'',health_goal:'prevent',women_health_opt_in:false,privacy_consent:true}),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+ const initialToken=new URLSearchParams(window.location.hash.replace(/^#/, '')).get('reset_token')||new URLSearchParams(window.location.search).get('reset_token')||'';
+ const [mode,setMode]=useState(()=>initialToken?'reset':'login');
+ const [resetToken]=useState(initialToken);
+ const [form,setForm]=useState({full_name:'',email:'',password:'',age:'',age_group:'30-45',gender:'',health_goal:'prevent',women_health_opt_in:false,privacy_consent:false});
+ const [error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
  const change=(k,v)=>setForm(f=>({...f,[k]:v}));
- async function submit(e){e.preventDefault();setBusy(true);setError('');try{const result=await api('/api/auth/'+mode,{method:'POST',body:JSON.stringify({...form,age:form.age?Number(form.age):null})});setSession(result);onAuth(result.user);}catch(err){setError(err.message);}finally{setBusy(false);}}
+ function switchMode(next){setMode(next);setError('');setNotice('');}
+ async function submit(e){
+  e.preventDefault();setBusy(true);setError('');setNotice('');
+  try{
+   if(mode==='forgot'){
+    const result=await api('/api/auth/forgot-password',{method:'POST',body:JSON.stringify({email:form.email})});
+    setNotice(result.message||'If an account exists for that email, a password-reset link will be sent.');
+   }else if(mode==='reset'){
+    const result=await api('/api/auth/reset-password',{method:'POST',body:JSON.stringify({token:resetToken,password:form.password})});
+    window.history.replaceState({},'',window.location.pathname);
+    setForm(f=>({...f,password:''}));
+    setNotice(result.message||'Password updated. Sign in with your new password.');
+    setMode('login');
+   }else{
+    const result=await api('/api/auth/'+mode,{method:'POST',body:JSON.stringify({...form,age:form.age?Number(form.age):null})});
+    setSession(result);onAuth(result.user);
+   }
+  }catch(err){setError(err.message);}finally{setBusy(false);}
+ }
+ const heading=mode==='register'?'Create your account':mode==='forgot'?'Reset your password':mode==='reset'?'Choose a new password':'Sign in to MediVision';
  return <div className="auth-screen">
   <div className="auth-intro"><div className="brand-mark"><HeartPulse/></div><span className="eyebrow">YOUR PERSONAL WELLNESS COMPANION</span><h1>Health, made <em>clearer.</em></h1><p>A thoughtful space to organize everyday wellness, explore health education and build healthy habits at your pace.</p><div className="auth-points"><span>✦ Guided examples</span><span>♡ Privacy-minded</span><span>⌁ Clear safety boundaries</span></div><div className="auth-preview"><div className="preview-icon"><Activity/></div><div><b>Explore before you sign up</b><small>Try every section with fictional sample data.</small></div><CheckCircle2/></div></div>
-  <form className="auth-card" onSubmit={submit}><span className="eyebrow">{mode==='login'?'WELCOME BACK':'GET STARTED'}</span><h2>{mode==='login'?'Sign in to MediVision':'Create your account'}</h2><p className="muted">Use your own account for personal entries, or explore the demo without registration.</p>
+  <form className="auth-card" onSubmit={submit}>
+   <span className="eyebrow">{mode==='login'?'WELCOME BACK':mode==='register'?'GET STARTED':'ACCOUNT RECOVERY'}</span>
+   <h2>{heading}</h2>
+   <p className="muted">{mode==='forgot'?'Enter your account email. If it matches an active account, a secure, time-limited reset link will be sent.':mode==='reset'?'Choose a new password. This link can only be used once and expires after 30 minutes.':'Use your own account for personal entries, or explore the demo without registration.'}</p>
    {mode==='register'&&<><Field label="Full name"><input required minLength="2" value={form.full_name} onChange={e=>change('full_name',e.target.value)} placeholder="e.g. Priya Sharma"/></Field><div className="field-grid"><Field label="Age (optional)"><input type="number" min="16" max="120" value={form.age} onChange={e=>change('age',e.target.value)} placeholder="e.g. 24"/></Field><Field label="Age group"><select value={form.age_group} onChange={e=>change('age_group',e.target.value)}><option>16-30</option><option>30-45</option><option>45+</option></select></Field></div><Field label="Gender (optional)"><select value={form.gender} onChange={e=>change('gender',e.target.value)}><option value="">Prefer not to say</option><option>Female</option><option>Male</option><option>Non-binary</option><option>Self describe</option></select></Field><Field label="Primary wellness goal"><select value={form.health_goal} onChange={e=>change('health_goal',e.target.value)}><option value="prevent">Preventive wellness</option><option value="fitness">Improve fitness</option><option value="stress">Reduce stress</option><option value="senior">Senior care</option></select></Field><label className="check"><input type="checkbox" checked={form.women_health_opt_in} onChange={e=>change('women_health_opt_in',e.target.checked)}/> Enable optional women's health tools</label><label className="check"><input type="checkbox" checked={form.privacy_consent} required onChange={e=>change('privacy_consent',e.target.checked)}/> I consent to saving my account and wellness entries</label></>}
-   <Field label="Email address"><input type="email" required value={form.email} onChange={e=>change('email',e.target.value)} placeholder="you@example.com"/></Field><Field label="Password" hint="Use at least 12 characters."><input type="password" required minLength="12" value={form.password} onChange={e=>change('password',e.target.value)} placeholder="Enter your password"/></Field>
-   {error&&<Notice tone="error">{error}</Notice>}<Btn disabled={busy}>{busy?'Please wait…':mode==='login'?'Sign in':'Create account'} <ChevronRight size={16}/></Btn>
-   <button className="demo-entry" type="button" onClick={onDemo}><Sparkles size={17}/> Explore interactive demo <ArrowRight size={16}/></button>
-   <p className="switch">{mode==='login'?'New to MediVision?':'Already have an account?'} <button type="button" onClick={()=>{setMode(mode==='login'?'register':'login');setError('')}}>{mode==='login'?'Create account':'Sign in'}</button></p><small>Educational prototype only. Not a substitute for professional medical care.</small>
+   {mode!=='reset'&&<Field label="Email address"><input type="email" required value={form.email} onChange={e=>change('email',e.target.value)} placeholder="you@example.com"/></Field>}
+   {(mode==='login'||mode==='register'||mode==='reset')&&<Field label={mode==='reset'?'New password':'Password'} hint="Use at least 12 characters."><input type="password" required minLength="12" value={form.password} onChange={e=>change('password',e.target.value)} placeholder={mode==='reset'?'Choose a new password':'Enter your password'}/></Field>}
+   {error&&<Notice tone="error">{error}</Notice>}
+   {notice&&<Notice tone="success">{notice}</Notice>}
+   <Btn disabled={busy}>{busy?'Please wait…':mode==='login'?'Sign in':mode==='register'?'Create account':mode==='forgot'?'Send reset link':'Update password'} <ChevronRight size={16}/></Btn>
+   {mode==='login'&&<button className="text-action forgot-link" type="button" onClick={()=>switchMode('forgot')}>Forgot password?</button>}
+   {mode!=='reset'&&mode!=='forgot'&&<button className="demo-entry" type="button" onClick={onDemo}><Sparkles size={17}/> Explore interactive demo <ArrowRight size={16}/></button>}
+   {mode==='forgot'&&<p className="switch"><button type="button" onClick={()=>switchMode('login')}>Back to sign in</button></p>}
+   {mode==='reset'&&<p className="switch"><button type="button" onClick={()=>{window.history.replaceState({},'',window.location.pathname);switchMode('login');}}>Back to sign in</button></p>}
+   {(mode==='login'||mode==='register')&&<p className="switch">{mode==='login'?'New to MediVision?':'Already have an account?'} <button type="button" onClick={()=>switchMode(mode==='login'?'register':'login')}>{mode==='login'?'Create account':'Sign in'}</button></p>}
+   <small>Educational prototype only. Not a substitute for professional medical care.</small>
   </form>
  </div>;
 }

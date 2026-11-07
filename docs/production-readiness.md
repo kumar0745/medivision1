@@ -41,12 +41,15 @@ The prior temporary SQLite database did not provide durable storage and was not 
 ## Remaining work before handling real health information
 
 - Independent application-security review and penetration test.
-- Malware scanning / quarantine before allowing users to download uploads.
-- Formal backup and restore drills, retention policy, and verified deletion workflow.
-- Email verification, password reset, MFA, session revocation and distributed abuse/rate limiting.
+- Deploy the private ClamAV service and configure `MALWARE_SCANNER_URL` and `MALWARE_SCANNER_TOKEN`; uploads are fail-closed until this is done.
+- Configure GitHub backup secrets/variables, run the encrypted backup, pass the isolated restore-test, then enable its daily schedule. Neon scheduled snapshots are not enabled on this project plan.
+- Configure Resend sender/API credentials for the implemented 30-minute single-use password reset flow; add email verification, MFA and distributed abuse/rate limiting.
 - Privacy notice, consent language and jurisdiction-specific legal review.
 - Clinical governance and independent validation before adding diagnostic or decision-support models.
 - Operational monitoring, alerting, support ownership, incident response and disaster recovery.
 - Do not claim HIPAA, DPDP, ISO 27001 or clinical compliance based only on this code release.
 
 MediVision remains a personal wellness and health-education prototype, not a medical device, diagnostic service or emergency dispatch platform.
+
+
+See [Security, recovery and backups](security-recovery-backups.md) for the integration setup and test instructions.

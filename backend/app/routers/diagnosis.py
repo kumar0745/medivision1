@@ -1,5 +1,6 @@
 from pathlib import Path
 from hashlib import sha256
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session
@@ -21,6 +22,7 @@ ALLOWED = {
 URGENT_TERMS = ["chest pain", "difficulty breathing", "shortness of breath", "face drooping",
                 "weakness on one side", "unconscious", "severe bleeding", "suicidal"]
 
+
 def build_guidance(symptoms: str):
     lower = symptoms.lower()
     if any(term in lower for term in URGENT_TERMS):
@@ -34,6 +36,32 @@ def build_guidance(symptoms: str):
                    "especially if symptoms persist, worsen, or concern you.")
     return severity, message + " This is general safety guidance, not a diagnosis."
 
+
+def scan_uploaded_file(content: bytes) -> None:
+    if not settings.scanner_configured:
+        raise HTTPException(503, "Secure file scanning is not configured. Attachments are temporarily disabled.")
+    try:
+        response = httpx.post(
+            settings.malware_scanner_url.rstrip("/") + "/scan",
+            content=content,
+            headers={"Authorization": f"Bearer {settings.malware_scanner_token}",
+                     "Content-Type": "application/octet-stream"},
+            timeout=25.0,
+        )
+    except httpx.HTTPError:
+        raise HTTPException(503, "The malware scanner is unavailable. No attachment was saved.")
+    if response.status_code == 422:
+        raise HTTPException(422, "This attachment was blocked by the malware scanner.")
+    if response.status_code != 200:
+        raise HTTPException(503, "The malware scanner could not verify this attachment.")
+    try:
+        verdict = response.json()
+    except ValueError:
+        raise HTTPException(503, "The malware scanner returned an invalid response.")
+    if verdict.get("clean") is not True or verdict.get("engine") != "ClamAV":
+        raise HTTPException(503, "The malware scanner did not confirm this attachment is clean.")
+
+
 @router.post("")
 async def create_check(symptoms: str = Form(...), category: str = Form("symptom-check"),
                        file: UploadFile | None = File(default=None),
@@ -43,6 +71,7 @@ async def create_check(symptoms: str = Form(...), category: str = Form("symptom-
         raise HTTPException(400, "Please enter between 3 and 3000 characters.")
     if len(category) > 50:
         raise HTTPException(400, "Invalid record category.")
+
     content = extension = content_type = filename = None
     if file:
         filename = Path(file.filename or "attachment").name[:255]
@@ -58,12 +87,15 @@ async def create_check(symptoms: str = Form(...), category: str = Form("symptom-
         content_type, signature_check = allowed
         if not signature_check(content):
             raise HTTPException(415, "The uploaded file content does not match its extension.")
+        scan_uploaded_file(content)
+
     object_key = None
     if content is not None:
         try:
             object_key = store_file(user.id, extension, content, content_type)
         except Exception:
             raise HTTPException(503, "Secure file storage is temporarily unavailable. No record was saved.")
+
     severity, guidance = build_guidance(clean_symptoms)
     row = DiagnosisRecord(user_id=user.id, symptoms=clean_symptoms, category=category,
                           attachment_name=filename, guidance=guidance, severity=severity)
@@ -85,9 +117,11 @@ async def create_check(symptoms: str = Form(...), category: str = Form("symptom-
             except Exception:
                 pass
         raise HTTPException(500, "The health note could not be saved. Please retry.")
+
     return {"id": row.id, "severity": severity, "guidance": guidance, "created_at": row.created_at,
             "attachment_received": bool(object_key),
-            "medical_notice": "Uploads are stored as private attachments only. No image model is enabled and no image diagnosis is performed."}
+            "medical_notice": "Uploads are stored as private attachments only. Files are scanned before storage; no image diagnosis is performed."}
+
 
 @router.get("/{record_id}/attachment")
 def download_attachment(record_id: int, db: Session = Depends(get_db),
@@ -108,6 +142,7 @@ def download_attachment(record_id: int, db: Session = Depends(get_db),
         raise HTTPException(404, "Attachment file is missing.")
     return FileResponse(path, media_type=attachment.content_type,
                         filename=attachment.original_filename, content_disposition_type="attachment")
+
 
 @router.get("")
 def list_checks(db: Session = Depends(get_db), user: User = Depends(get_current_user)):

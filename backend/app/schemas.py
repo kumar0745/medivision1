@@ -16,6 +16,13 @@ class LoginIn(BaseModel):
     email: EmailStr
     password: str = Field(min_length=1, max_length=72)
 
+class ForgotPasswordIn(BaseModel):
+    email: EmailStr
+
+class ResetPasswordIn(BaseModel):
+    token: str = Field(min_length=32, max_length=200)
+    password: str = Field(min_length=12, max_length=72)
+
 class ProfileUpdate(BaseModel):
     full_name: str = Field(min_length=2, max_length=120)
     age: Optional[int] = Field(default=None, ge=16, le=120)

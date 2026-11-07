@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 45
     database_url: str = "sqlite:///./medivision.db"
     frontend_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    app_base_url: str = "http://localhost:5173"
     upload_dir: str = "uploads"
     max_upload_mb: int = 8
     storage_backend: str = "local"
@@ -17,6 +18,10 @@ class Settings(BaseSettings):
     aws_region: str = ""
     aws_access_key_id: str = ""
     aws_secret_access_key: str = ""
+    malware_scanner_url: str = ""
+    malware_scanner_token: str = ""
+    resend_api_key: str = ""
+    email_from: str = ""
     openai_api_key: str = ""
     openai_model: str = "gpt-4.1-mini"
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False)
@@ -24,6 +29,14 @@ class Settings(BaseSettings):
     @property
     def origins(self) -> list[str]:
         return [item.strip() for item in self.frontend_origins.split(",") if item.strip()]
+
+    @property
+    def scanner_configured(self) -> bool:
+        return bool(self.malware_scanner_url and self.malware_scanner_token)
+
+    @property
+    def email_configured(self) -> bool:
+        return bool(self.resend_api_key and self.email_from and self.app_base_url.startswith("https://"))
 
     @model_validator(mode="after")
     def validate_production_configuration(self):

@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "vite preview --host 0.0.0.0",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
@@ -16,5 +17,7 @@
     "lucide-react": "^0.468.0",
     "recharts": "^2.15.0"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@playwright/test": "1.65.0"
+  }
 }
