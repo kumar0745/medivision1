@@ -24,6 +24,12 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type"],
 )
 
+for router in (
+    auth.router, profile.router, dashboard.router, diagnosis.router, wellness.router,
+    guidance.router, womens_health.router, emergency.router, assistant.router, reports.router,
+):
+    app.include_router(router)
+
 @app.middleware("http")
 async def security_headers_and_csrf(request, call_next):
     if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
